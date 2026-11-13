@@ -99,6 +99,8 @@ textarea{width:100%;max-width:420px;padding:14px;border-radius:16px;border:1px s
 [data-theme=light] textarea{border-color:#2a145033}
 .cnt{width:100%;max-width:420px;text-align:right;color:var(--mu);font-size:.9rem;margin-top:-8px}
 .fc h3.fr{font-size:1.3rem;line-height:1.3;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
+.needle.rev{transition:transform .9s cubic-bezier(.2,.8,.2,1)}
+.rd{width:100%;max-width:250px;margin:8px auto 2px}
 </style>
 </head>
 <body>
@@ -106,9 +108,8 @@ textarea{width:100%;max-width:420px;padding:14px;border-radius:16px;border:1px s
 <!-- 1. INICIO -->
 <section class="scr" id="s-home">
   <h1>Onda<br>Mental</h1>
-  <p>El juego de fiesta de leer mentes</p>
-  <button class="mode" id="h-clasico" data-go="config"><span>🎯</span><div><b>Modo Clásico (equipos)</b><small>Un solo móvil, dos equipos y sin conexión.</small></div></button>
-  <button class="mode" id="h-amigos"><span>🌐</span><div><b>Modo Amigos (online con código)</b><small>Cada uno con su móvil, de 2 a 10 jugadores.</small></div></button>
+  <button class="mode" id="h-clasico" data-go="config"><span>🎯</span><div><b>Modo clásico</b><small>Un solo móvil, dos equipos y sin conexión.</small></div></button>
+  <button class="mode" id="h-amigos"><span>🌐</span><div><b>Modo amigos</b><small>Cada uno con su móvil, de 2 a 10 jugadores.</small></div></button>
   <button class="btn sec" id="h-cont" style="display:none">Continuar partida clásica</button>
   <button class="btn sec" data-go="rules">Reglas</button>
   <button class="btn sec" data-go="settings">Ajustes</button>
@@ -123,7 +124,7 @@ textarea{width:100%;max-width:420px;padding:14px;border-radius:16px;border:1px s
     <p>🎯 Su equipo gira el dial hasta donde crea que está la zona. Puntos: <b style="color:var(--c4)">4</b> centro, <b style="color:var(--c3)">3</b> franja contigua, <b style="color:var(--c2)">2</b> franja exterior, 0 si falla.</p>
     <p>↔️ El equipo contrario apuesta si el objetivo estaba a la izquierda o a la derecha del dial: si acierta, se lleva 1 punto extra.</p>
     <p>🏆 Gana quien llegue primero a la meta de puntos.</p>
-    <p>🌐 <b style="color:var(--c4)">Modo Amigos:</b> cada uno recibe en secreto una puntuación (0-100) y escribe una frase que la represente. Los demás colocan dónde creen que está. Cuanto más cerca la media y cada voto, más puntos. Se juega de 2 a 10 jugadores (mínimo 2 jugadores).</p>
+    <p>🌐 <b style="color:var(--c4)">Modo amigos:</b> cada uno recibe en secreto una puntuación (0-100) y escribe una frase que la represente. Los demás colocan dónde creen que está. Cuanto más cerca la media y cada voto, más puntos. Se juega de 2 a 10 jugadores (mínimo 2 jugadores).</p>
   </div>
   <button class="btn" data-go="home">Entendido</button>
 </section>
@@ -232,11 +233,11 @@ textarea{width:100%;max-width:420px;padding:14px;border-radius:16px;border:1px s
 <script>
 'use strict';
 /* =====================================================================
-   ★ CONFIGURACIÓN DE FIREBASE (solo la usa el Modo Amigos) ★
+   ★ CONFIGURACIÓN DE FIREBASE (solo la usa el Modo amigos) ★
    Dónde sacarla: consola de Firebase → ⚙ Configuración del proyecto →
    pestaña General → "Tus apps" → app web → "Configuración del SDK" → Config.
    Qué pegar: sustituye los valores entre comillas por los de tu proyecto.
-   Si dejas "PEGA_AQUI", el Modo Amigos avisará de que falta configurar.
+   Si dejas "PEGA_AQUI", el Modo amigos avisará de que falta configurar.
    (La apiKey de Firebase es pública por diseño: la seguridad la dan las reglas.)
    ===================================================================== */
 const firebaseConfig = {
@@ -324,7 +325,7 @@ function wedge(a1, a2, col) {
 }
 // Mitades de franja (en % del dial): 4 pts ±2.5, 3 pts ±7.5, 2 pts ±12.5
 const BANDS = [[12.5, 2, '#3fc1c9'], [7.5, 3, '#ff7a59'], [2.5, 4, '#ffcf4a']];
-// opciones: {target, dial, cover:false, needle:false}. Sin opciones se comporta como en el Modo Clásico.
+// opciones: {target, dial, cover:false, needle:false, needleW (aguja más gruesa y con contorno)}. Sin opciones se comporta como en el Modo clásico.
 function dialSVG(o = {}) {
   const tg = o.target != null ? o.target : S.target, di = o.dial != null ? o.dial : S.dial, cv = o.cover !== false, nd = o.needle !== false;
   const c = ang(tg);
@@ -338,7 +339,7 @@ function dialSVG(o = {}) {
     <g class="zone">${zone}</g>
     ${cv ? `<g class="cover"><path d="M12 100A88 88 0 0 1 188 100Z" fill="url(#cv)" stroke="#ffffff33" stroke-width="1"/>
       <text x="100" y="72" text-anchor="middle" font-size="34" font-weight="900" fill="#ffffff55">?</text></g>` : ''}
-    ${nd ? `<g class="needle" style="transform:rotate(${ang(di)}deg)"><line x1="100" y1="100" x2="100" y2="14" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/><circle cx="100" cy="100" r="9" fill="#fff"/><circle cx="100" cy="100" r="4" fill="#2a1450"/></g>` : ''}
+    ${nd ? `<g class="needle" style="transform:rotate(${ang(di)}deg)">${o.needleW ? `<line x1="100" y1="100" x2="100" y2="14" stroke="#000b" stroke-width="${o.needleW + 3}" stroke-linecap="round"/>` : ''}<line x1="100" y1="100" x2="100" y2="14" stroke="#fff" stroke-width="${o.needleW || 3.5}" stroke-linecap="round"/><circle cx="100" cy="100" r="9" fill="#fff"/><circle cx="100" cy="100" r="4" fill="#2a1450"/></g>` : ''}
   </svg>`;
 }
 const mount = (sel, drag) => { const el = $(sel); el.classList.remove('open'); el.innerHTML = dialSVG(); if (drag) bindDrag(el); return el; };
@@ -518,7 +519,7 @@ const Utilidades = {
   },
   slug: n => n.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '_').slice(0, 16) || 'j',
   norm: t => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim(),
-  // Escala del Modo Amigos: diferencia ≤5 → 4, ≤10 → 3, ≤20 → 2, ≤30 → 1
+  // Escala del Modo amigos: diferencia ≤5 → 4, ≤10 → 3, ≤20 → 2, ≤30 → 1
   pts: d => d <= 5 ? 4 : d <= 10 ? 3 : d <= 20 ? 2 : d <= 30 ? 1 : 0,
   // Generador pseudoaleatorio con semilla (mulberry32): todos los móviles obtienen la misma secuencia
   rng(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; },
@@ -587,12 +588,12 @@ const ModoAmigos = (() => {
 
   /* ---------- Conexión ---------- */
   const vacio = v => !v || /PEGA|TU_|XXXX/i.test(v);
-  const sinRed = () => aviso('Sin conexión a internet', 'El Modo Amigos necesita internet. Reintentando automáticamente… El Modo Clásico funciona sin conexión.', { auto: true, ico: '📴' });
+  const sinRed = () => aviso('Sin conexión a internet', 'El Modo amigos necesita internet. Reintentando automáticamente… El Modo clásico funciona sin conexión.', { auto: true, ico: '📴' });
   async function cargar() {
     if (A.db) return true;
     const c = firebaseConfig;
     if (/^(file|content):/.test(location.protocol)) return aviso('Abre el juego desde una dirección web (https), no desde un archivo', 'Firebase no funciona si abres el HTML desde el almacenamiento del móvil o desde WhatsApp. Publícalo (p. ej. en GitHub Pages) y entra con su enlace https.', { guia: true, ico: '🔗' });
-    if (['apiKey', 'databaseURL', 'projectId', 'appId'].some(k => vacio(c[k]))) return aviso('Falta configurar Firebase', 'Faltan las claves de Firebase en el bloque <b>firebaseConfig</b> del archivo. El Modo Clásico sigue funcionando.', { guia: true, ico: '🛠️' });
+    if (['apiKey', 'databaseURL', 'projectId', 'appId'].some(k => vacio(c[k]))) return aviso('Falta configurar Firebase', 'Faltan las claves de Firebase en el bloque <b>firebaseConfig</b> del archivo. El Modo clásico sigue funcionando.', { guia: true, ico: '🛠️' });
     if (!navigator.onLine) return sinRed();
     try {
       const b = 'https://www.gstatic.com/firebasejs/' + FB_VER + '/';
@@ -621,7 +622,7 @@ const ModoAmigos = (() => {
     pantallaEntrada();
   }
   function pantallaEntrada(msg = '') {
-    set(`<h2>Modo Amigos</h2><p>De 2 a 10 jugadores, cada uno con su móvil.</p>
+    set(`<h2>Modo amigos</h2><p>De 2 a 10 jugadores, cada uno con su móvil.</p>
       <input type="text" id="am-n" maxlength="16" placeholder="Tu nombre" value="${U.esc(cfg.nombre)}">
       <button class="btn" id="am-c">Crear sala</button>
       <input type="text" id="am-k" maxlength="4" placeholder="CÓDIGO" value="${U.esc(cfg.sala)}" style="text-transform:uppercase;letter-spacing:.3em">
@@ -810,12 +811,13 @@ const ModoAmigos = (() => {
       set(`${hd}${card}` + o.map(k => {
         const p = Pu[k] || {}, nom = U.esc((J[k] || {}).nombre || k);
         if (p.m == null) return `<div class="fc"><h3 class="fr" data-k="${k}"></h3><small>${nom} · sin datos</small></div>`;
-        return `<div class="fc"><h3 class="fr" data-k="${k}"></h3><small>${nom}</small><div class="trk"><i class="r" data-x="${p.r}"></i><i class="m" data-x="${Math.round(p.m)}"></i></div>
+        return `<div class="fc"><h3 class="fr" data-k="${k}"></h3><small>${nom}</small><div class="dialbox info rd" data-m="${p.m}">${dialSVG({ target: p.r, dial: 50, cover: false, needleW: 5 })}</div>
           <small>Real <b>${p.r}</b> · Media <b>${Math.round(p.m)}</b> · Diferencia <b>${Math.round(p.d)}</b> → autor +${p.a}</small></div>`;
       }).join('') + `<div class="big2">+${(mi.a || 0) + (mi.v || 0)}</div><p>puntos para ti en esta ronda</p>` +
         (esHost() ? `<button class="btn" id="am-nx">${s.ronda >= total() ? 'Ver resultados finales' : 'Siguiente ronda'}</button>` : '<p>El anfitrión pasará a la siguiente ronda.</p>'));
       pintaFrases();
-      setTimeout(() => $$('#am .trk i[data-x]').forEach(i => i.style.left = i.dataset.x + '%'), 300);
+      // la aguja parte de la vertical y se mueve suavemente hasta la media de los votos
+      setTimeout(() => $$('#am .rd').forEach(d => { const n = d.querySelector('.needle'); n.classList.add('rev'); n.style.transform = `rotate(${ang(+d.dataset.m)}deg)`; }), 300);
       U.beep(740); vib(80);
       const nx = $('#am-nx'); if (nx) nx.onclick = () => s.ronda >= total() ? F.update(R(), { fase: 'fin', actualizado: ahora() }) : ronda(s.ronda + 1);
     }
