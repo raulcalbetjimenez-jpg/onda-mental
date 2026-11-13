@@ -101,6 +101,13 @@ textarea{width:100%;max-width:420px;padding:14px;border-radius:16px;border:1px s
 .fc h3.fr{font-size:1.3rem;line-height:1.3;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
 .needle.rev{transition:transform .9s cubic-bezier(.2,.8,.2,1)}
 .rd{width:100%;max-width:250px;margin:8px auto 2px}
+.vd{width:100%;max-width:260px;margin:8px auto 0}
+.vd .ext b{font-size:.85rem;padding:6px 10px;max-width:48%;line-height:1.1}
+.vrow{display:flex;align-items:center;justify-content:center;gap:14px;margin:8px 0}
+.vrow button{width:52px;height:46px;border-radius:14px;border:1px solid #ffffff33;background:var(--pan);color:var(--tx);font-size:1.6rem;font-weight:800;font-family:inherit}
+.vrow button:active{transform:scale(.94)}.vrow button:disabled{opacity:.4}
+.vn{font-weight:800;font-size:1.1rem;min-width:130px;text-align:center}
+.fc.lk .dial{opacity:.7}
 </style>
 </head>
 <body>
@@ -325,9 +332,9 @@ function wedge(a1, a2, col) {
 }
 // Mitades de franja (en % del dial): 4 pts ±2.5, 3 pts ±7.5, 2 pts ±12.5
 const BANDS = [[12.5, 2, '#3fc1c9'], [7.5, 3, '#ff7a59'], [2.5, 4, '#ffcf4a']];
-// opciones: {target, dial, cover:false, needle:false, needleW (aguja más gruesa y con contorno)}. Sin opciones se comporta como en el Modo clásico.
+// opciones: {target, dial, cover:false, needle:false, zone:false (sin franjas, para votar), needleW (aguja más gruesa y con contorno)}. Sin opciones se comporta como en el Modo clásico.
 function dialSVG(o = {}) {
-  const tg = o.target != null ? o.target : S.target, di = o.dial != null ? o.dial : S.dial, cv = o.cover !== false, nd = o.needle !== false;
+  const tg = o.target != null ? o.target : S.target, di = o.dial != null ? o.dial : S.dial, cv = o.cover !== false, nd = o.needle !== false, zn = o.zone !== false;
   const c = ang(tg);
   const zone = BANDS.map(b => wedge(c - b[0] * 1.8, c + b[0] * 1.8, b[2])).join('');
   const [tx, ty] = P(c, 64);
@@ -336,7 +343,7 @@ function dialSVG(o = {}) {
     <defs><linearGradient id="cv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4b2a8f"/><stop offset="1" stop-color="#1d1245"/></linearGradient></defs>
     <path d="M6 100A94 94 0 0 1 194 100Z" fill="#00000055"/>
     <path d="M12 100A88 88 0 0 1 188 100Z" fill="#241a4d"/>
-    <g class="zone">${zone}</g>
+    ${zn ? `<g class="zone">${zone}</g>` : '<path d="M12 100A88 88 0 0 1 188 100Z" fill="none" stroke="#ffffff40" stroke-width="1.2"/>'}
     ${cv ? `<g class="cover"><path d="M12 100A88 88 0 0 1 188 100Z" fill="url(#cv)" stroke="#ffffff33" stroke-width="1"/>
       <text x="100" y="72" text-anchor="middle" font-size="34" font-weight="900" fill="#ffffff55">?</text></g>` : ''}
     ${nd ? `<g class="needle" style="transform:rotate(${ang(di)}deg)">${o.needleW ? `<line x1="100" y1="100" x2="100" y2="14" stroke="#000b" stroke-width="${o.needleW + 3}" stroke-linecap="round"/>` : ''}<line x1="100" y1="100" x2="100" y2="14" stroke="#fff" stroke-width="${o.needleW || 3.5}" stroke-linecap="round"/><circle cx="100" cy="100" r="9" fill="#fff"/><circle cx="100" cy="100" r="4" fill="#2a1450"/></g>` : ''}
@@ -785,17 +792,31 @@ const ModoAmigos = (() => {
       set(`${hd}${card}<p>¿Dónde crees que está la puntuación de cada uno?</p>` + au.map(k => {
         const hecho = k in mios, v = hecho ? mios[k] : 50;
         return `<div class="fc" data-a="${k}"><h3 class="fr" data-k="${k}"></h3><small>${U.esc((J[k] || {}).nombre || k)}</small>
-          <div class="trk"><i class="m" style="left:${v}%;transition:none"></i></div>
-          <input type="range" min="0" max="100" step="1" value="${v}" ${hecho ? 'disabled' : ''}>
-          <button class="btn" style="padding:12px;margin-top:8px" ${hecho ? 'disabled' : ''}>${hecho ? 'Bloqueado: ' + v : 'Bloquear'}</button></div>`;
+          <div class="vd">${dialSVG({ zone: false, cover: false, dial: v, needleW: 5 })}<div class="ext"><b>${U.esc(c[0])}</b><b>${U.esc(c[1])}</b></div></div>
+          <div class="vrow"><button class="mm" aria-label="Restar 1">−</button><span class="vn">Tu voto: ${v}</span><button class="pp" aria-label="Sumar 1">+</button></div>
+          <button class="btn lock" style="padding:12px;margin-top:4px">${hecho ? 'Bloqueado: ' + v : 'Bloquear'}</button></div>`;
       }).join('') + `<p id="am-prog"></p><div class="pl" id="am-pl">${lista()}</div>`);
       $$('#am .fc').forEach(el => {
-        const a = el.dataset.a, r = el.querySelector('input'), b = el.querySelector('button'), m = el.querySelector('.trk i');
-        r.oninput = () => m.style.left = r.value + '%';
+        const a = el.dataset.a, svg = el.querySelector('svg'), nd = el.querySelector('.needle'), vn = el.querySelector('.vn'),
+              mm = el.querySelector('.mm'), pp = el.querySelector('.pp'), b = el.querySelector('.lock');
+        let v = a in mios ? mios[a] : 50, lk = a in mios;              // el voto es siempre un entero de 0 a 100
+        const setV = x => { v = Math.max(0, Math.min(100, Math.round(x))); nd.style.transform = `rotate(${ang(v)}deg)`; vn.textContent = 'Tu voto: ' + v; };
+        const off = () => { el.classList.add('lk'); mm.disabled = pp.disabled = b.disabled = true; };
+        // Arrastrar la aguja con pointer events (touch-action:none solo afecta al semicírculo)
+        const move = e => {
+          const r = svg.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height * (100 / 112);
+          setV((Math.max(-90, Math.min(90, Math.atan2(e.clientX - cx, cy - e.clientY) * 180 / Math.PI)) + 90) / 1.8);
+        };
+        svg.addEventListener('pointerdown', e => { if (lk) return; svg.setPointerCapture(e.pointerId); nd.style.transition = 'none'; move(e); svg.onpointermove = move; });
+        const fin = () => { svg.onpointermove = null; nd.style.transition = ''; };
+        svg.addEventListener('pointerup', fin); svg.addEventListener('pointercancel', fin);
+        mm.onclick = () => { if (!lk) setV(v - 1); };
+        pp.onclick = () => { if (!lk) setV(v + 1); };
+        if (lk) off();
         b.onclick = () => {
-          const v = +r.value; r.disabled = b.disabled = true; b.textContent = 'Bloqueado: ' + v; vib([60, 40, 90]); U.beep(520);
+          if (lk) return; lk = true; off(); b.textContent = 'Bloqueado: ' + v; vib([60, 40, 90]); U.beep(520);
           A.st.mios = Object.assign({}, A.st.mios, { [a]: v });
-          F.set(R('votos/' + A.yo + '/' + a), v).then(compruebaListo).catch(() => { r.disabled = b.disabled = false; b.textContent = 'Bloquear'; });
+          F.set(R('votos/' + A.yo + '/' + a), v).then(compruebaListo).catch(() => { lk = false; el.classList.remove('lk'); mm.disabled = pp.disabled = b.disabled = false; b.textContent = 'Bloquear'; });
         };
       });
       pintaFrases(); compruebaListo(); parcial();
