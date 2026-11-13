@@ -90,6 +90,15 @@ input[type=range]::-moz-range-thumb{width:34px;height:34px;border:0;border-radiu
 .rk{display:flex;justify-content:space-between;width:100%;padding:12px 16px;border-radius:14px;background:var(--pan);font-weight:800}
 .rk:first-child{border:2px solid var(--c4)}
 .err{color:#ff8fa8;min-height:1.3em}
+.dialbox.info .dial{touch-action:auto}
+.ext{display:flex;justify-content:space-between;gap:10px;margin-top:4px}
+.ext b{padding:8px 14px;border-radius:12px;font-size:1.05rem}
+.ext b:first-child{background:linear-gradient(135deg,#2a8f96,var(--izq))}
+.ext b:last-child{background:linear-gradient(135deg,#d6486d,var(--der))}
+textarea{width:100%;max-width:420px;padding:14px;border-radius:16px;border:1px solid #ffffff2a;background:var(--pan);color:var(--tx);font-family:inherit;font-size:1.1rem;font-weight:600;line-height:1.35;resize:none;user-select:text;-webkit-user-select:text}
+[data-theme=light] textarea{border-color:#2a145033}
+.cnt{width:100%;max-width:420px;text-align:right;color:var(--mu);font-size:.9rem;margin-top:-8px}
+.fc h3.fr{font-size:1.3rem;line-height:1.3;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
 </style>
 </head>
 <body>
@@ -114,7 +123,7 @@ input[type=range]::-moz-range-thumb{width:34px;height:34px;border:0;border-radiu
     <p>🎯 Su equipo gira el dial hasta donde crea que está la zona. Puntos: <b style="color:var(--c4)">4</b> centro, <b style="color:var(--c3)">3</b> franja contigua, <b style="color:var(--c2)">2</b> franja exterior, 0 si falla.</p>
     <p>↔️ El equipo contrario apuesta si el objetivo estaba a la izquierda o a la derecha del dial: si acierta, se lleva 1 punto extra.</p>
     <p>🏆 Gana quien llegue primero a la meta de puntos.</p>
-    <p>🌐 <b style="color:var(--c4)">Modo Amigos:</b> cada uno recibe en secreto una puntuación (0-100) y escribe UNA palabra que la represente. Los demás colocan dónde creen que está. Cuanto más cerca la media y cada voto, más puntos.</p>
+    <p>🌐 <b style="color:var(--c4)">Modo Amigos:</b> cada uno recibe en secreto una puntuación (0-100) y escribe una frase que la represente. Los demás colocan dónde creen que está. Cuanto más cerca la media y cada voto, más puntos.</p>
   </div>
   <button class="btn" data-go="home">Entendido</button>
 </section>
@@ -309,13 +318,16 @@ $$('[data-go]').forEach(b => b.onclick = () => show(b.dataset.go));
 const ang = p => p * 1.8 - 90;
 const P = (a, r) => { const t = a * Math.PI / 180; return [100 + r * Math.sin(t), 100 - r * Math.cos(t)]; };
 function wedge(a1, a2, col) {
+  a1 = Math.max(-90, a1); a2 = Math.min(90, a2);   // la zona nunca sobresale del semicírculo
   const [x1, y1] = P(a1, 88), [x2, y2] = P(a2, 88);
   return `<path d="M100 100L${x1} ${y1}A88 88 0 0 1 ${x2} ${y2}Z" fill="${col}"/>`;
 }
 // Mitades de franja (en % del dial): 4 pts ±2.5, 3 pts ±7.5, 2 pts ±12.5
 const BANDS = [[12.5, 2, '#3fc1c9'], [7.5, 3, '#ff7a59'], [2.5, 4, '#ffcf4a']];
-function dialSVG() {
-  const c = ang(S.target);
+// opciones: {target, dial, cover:false, needle:false}. Sin opciones se comporta como en el Modo Clásico.
+function dialSVG(o = {}) {
+  const tg = o.target != null ? o.target : S.target, di = o.dial != null ? o.dial : S.dial, cv = o.cover !== false, nd = o.needle !== false;
+  const c = ang(tg);
   const zone = BANDS.map(b => wedge(c - b[0] * 1.8, c + b[0] * 1.8, b[2])).join('');
   const [tx, ty] = P(c, 64);
   const lbl = BANDS.map(b => '').join('');
@@ -324,9 +336,9 @@ function dialSVG() {
     <path d="M6 100A94 94 0 0 1 194 100Z" fill="#00000055"/>
     <path d="M12 100A88 88 0 0 1 188 100Z" fill="#241a4d"/>
     <g class="zone">${zone}</g>
-    <g class="cover"><path d="M12 100A88 88 0 0 1 188 100Z" fill="url(#cv)" stroke="#ffffff33" stroke-width="1"/>
-      <text x="100" y="72" text-anchor="middle" font-size="34" font-weight="900" fill="#ffffff55">?</text></g>
-    <g class="needle" style="transform:rotate(${ang(S.dial)}deg)"><line x1="100" y1="100" x2="100" y2="14" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/><circle cx="100" cy="100" r="9" fill="#fff"/><circle cx="100" cy="100" r="4" fill="#2a1450"/></g>
+    ${cv ? `<g class="cover"><path d="M12 100A88 88 0 0 1 188 100Z" fill="url(#cv)" stroke="#ffffff33" stroke-width="1"/>
+      <text x="100" y="72" text-anchor="middle" font-size="34" font-weight="900" fill="#ffffff55">?</text></g>` : ''}
+    ${nd ? `<g class="needle" style="transform:rotate(${ang(di)}deg)"><line x1="100" y1="100" x2="100" y2="14" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/><circle cx="100" cy="100" r="9" fill="#fff"/><circle cx="100" cy="100" r="4" fill="#2a1450"/></g>` : ''}
   </svg>`;
 }
 const mount = (sel, drag) => { const el = $(sel); el.classList.remove('open'); el.innerHTML = dialSVG(); if (drag) bindDrag(el); return el; };
@@ -701,6 +713,8 @@ const ModoAmigos = (() => {
     if (k !== A.k) { A.k = k; fase(); } else parcial();
     host(); vigilar();
   }
+  // Las frases son texto libre: se insertan SIEMPRE con textContent, nunca con innerHTML
+  const pintaFrases = () => $$('#am .fr').forEach(e => { e.textContent = (A.st.palabras || {})[e.dataset.k] || '—'; });
   const lista = () => {
     const s = A.st, J = s.jugadores || {}, L = s.listos || {}, P = s.palabras || {}, f = s.fase;
     return Object.keys(J).sort((a, b) => (J[a].t || 0) - (J[b].t || 0)).map(k =>
@@ -715,7 +729,7 @@ const ModoAmigos = (() => {
     const pg = $('#am-prog');
     if (pg) {
       const J = s.jugadores || {}, con = Object.keys(J).filter(k => J[k].conectado), X = f === 'palabra' ? (s.palabras || {}) : (s.listos || {});
-      pg.textContent = con.filter(k => X[k]).length + ' de ' + con.length + (f === 'palabra' ? ' han enviado su palabra' : ' han votado');
+      pg.textContent = con.filter(k => X[k]).length + ' de ' + con.length + (f === 'palabra' ? ' han enviado su frase' : ' han votado');
     }
   }
   function reloj() {
@@ -728,7 +742,7 @@ const ModoAmigos = (() => {
     return `<h2>Sala</h2><div class="code">${A.sala}</div>
       <div class="row"><button class="btn sec" id="am-cp">Copiar</button><button class="btn sec" id="am-sh">Compartir</button></div>
       <div class="pl" id="am-pl">${lista()}</div>` + (esHost()
-      ? `<p>Rondas</p>${ch('am-r', [0, 3, 5, 8], cf.rondas || 0, v => v || 'Auto')}<p>Temporizador de palabra</p>${ch('am-t', [0, 45], cf.tiempo || 0, v => v ? v + ' s' : 'Sin')}
+      ? `<p>Rondas</p>${ch('am-r', [0, 3, 5, 8], cf.rondas || 0, v => v || 'Auto')}<p>Temporizador de frase</p>${ch('am-t', [0, 45], cf.tiempo || 0, v => v ? v + ' s' : 'Sin')}
          <button class="btn" id="am-go" ${n < 3 ? 'disabled' : ''}>${n < 3 ? 'Faltan jugadores (mín. 3)' : 'Empezar'}</button>`
       : '<p>Esperando a que el anfitrión empiece…</p>');
   }
@@ -749,11 +763,12 @@ const ModoAmigos = (() => {
 
     else if (f === 'palabra') {
       const v = miValor();
-      set(`${hd}${card}<p>Tu puntuación secreta</p><div class="big2">${v}</div><div class="trk"><i class="r" style="left:${v}%;transition:none"></i></div>
-        <p>Escribe UNA palabra que represente tu puntuación (sin números ni los extremos).</p>
-        <input type="text" id="am-w" maxlength="20" placeholder="Tu palabra" autocomplete="off"><div class="err" id="am-e"></div>
-        <button class="btn" id="am-ok">Enviar palabra</button><div id="am-t0" class="big2" style="font-size:1.6rem"></div><p id="am-prog"></p><div class="pl" id="am-pl">${lista()}</div>`);
+      set(`${hd}${card}<p>Tu puntuación secreta</p><div class="big2">${v}</div><div class="dialbox info">${dialSVG({ target: v, cover: false, needle: false })}<div class="ext"><b>${U.esc(c[0])}</b><b>${U.esc(c[1])}</b></div></div>
+        <p>Escribe una frase que represente tu puntuación en este espectro.</p>
+        <textarea id="am-w" maxlength="100" rows="3" placeholder="Ej.: tomarme una cocacola en un bar" autocomplete="off"></textarea><div class="cnt" id="am-cn">0/100</div><div class="err" id="am-e"></div>
+        <button class="btn" id="am-ok">Enviar frase</button><div id="am-t0" class="big2" style="font-size:1.6rem"></div><p id="am-prog"></p><div class="pl" id="am-pl">${lista()}</div>`);
       $('#am-ok').onclick = enviaPalabra;
+      $('#am-w').oninput = () => { $('#am-cn').textContent = $('#am-w').value.length + '/100'; };
       if (P[A.yo]) bloqueaPalabra(P[A.yo]);
       parcial();
     }
@@ -762,7 +777,7 @@ const ModoAmigos = (() => {
       const mios = s.mios || {}, au = o.filter(k => k !== A.yo);
       set(`${hd}${card}<p>¿Dónde crees que está la puntuación de cada uno?</p>` + au.map(k => {
         const hecho = k in mios, v = hecho ? mios[k] : 50;
-        return `<div class="fc" data-a="${k}"><h3>${U.esc(P[k] || '—')}</h3><small>${U.esc((J[k] || {}).nombre || k)}</small>
+        return `<div class="fc" data-a="${k}"><h3 class="fr" data-k="${k}"></h3><small>${U.esc((J[k] || {}).nombre || k)}</small>
           <div class="trk"><i class="m" style="left:${v}%;transition:none"></i></div>
           <input type="range" min="0" max="100" step="1" value="${v}" ${hecho ? 'disabled' : ''}>
           <button class="btn" style="padding:12px;margin-top:8px" ${hecho ? 'disabled' : ''}>${hecho ? 'Bloqueado: ' + v : 'Bloquear'}</button></div>`;
@@ -776,7 +791,7 @@ const ModoAmigos = (() => {
           F.set(R('votos/' + A.yo + '/' + a), v).then(compruebaListo).catch(() => { r.disabled = b.disabled = false; b.textContent = 'Bloquear'; });
         };
       });
-      compruebaListo(); parcial();
+      pintaFrases(); compruebaListo(); parcial();
     }
 
     else if (f === 'revela') {
@@ -788,11 +803,12 @@ const ModoAmigos = (() => {
       const Pu = (s.puntos || {})[s.ronda] || {}, mi = Pu[A.yo] || {};
       set(`${hd}${card}` + o.map(k => {
         const p = Pu[k] || {}, nom = U.esc((J[k] || {}).nombre || k);
-        if (p.m == null) return `<div class="fc"><h3>${U.esc(P[k] || '—')}</h3><small>${nom} · sin datos</small></div>`;
-        return `<div class="fc"><h3>${U.esc(P[k] || '—')}</h3><small>${nom}</small><div class="trk"><i class="r" data-x="${p.r}"></i><i class="m" data-x="${Math.round(p.m)}"></i></div>
+        if (p.m == null) return `<div class="fc"><h3 class="fr" data-k="${k}"></h3><small>${nom} · sin datos</small></div>`;
+        return `<div class="fc"><h3 class="fr" data-k="${k}"></h3><small>${nom}</small><div class="trk"><i class="r" data-x="${p.r}"></i><i class="m" data-x="${Math.round(p.m)}"></i></div>
           <small>Real <b>${p.r}</b> · Media <b>${Math.round(p.m)}</b> · Diferencia <b>${Math.round(p.d)}</b> → autor +${p.a}</small></div>`;
       }).join('') + `<div class="big2">+${(mi.a || 0) + (mi.v || 0)}</div><p>puntos para ti en esta ronda</p>` +
         (esHost() ? `<button class="btn" id="am-nx">${s.ronda >= total() ? 'Ver resultados finales' : 'Siguiente ronda'}</button>` : '<p>El anfitrión pasará a la siguiente ronda.</p>'));
+      pintaFrases();
       setTimeout(() => $$('#am .trk i[data-x]').forEach(i => i.style.left = i.dataset.x + '%'), 300);
       U.beep(740); vib(80);
       const nx = $('#am-nx'); if (nx) nx.onclick = () => s.ronda >= total() ? F.update(R(), { fase: 'fin', actualizado: ahora() }) : ronda(s.ronda + 1);
@@ -819,16 +835,13 @@ const ModoAmigos = (() => {
 
   /* ---------- Acciones de jugador ---------- */
   function enviaPalabra() {
-    const w = $('#am-w').value.trim(), c = Cartas.lista[A.st.carta];
-    if (!w) return err('Escribe una palabra.');
-    if (/\d/.test(w)) return err('Nada de números.');
-    if (/\s/.test(w)) return err('Solo UNA palabra.');
-    const nw = U.norm(w);
-    if (c.some(x => { const nx = U.norm(x); return nw === nx || (nx.length > 3 && nw.includes(nx)); })) return err('No vale usar los extremos de la carta.');
+    const w = $('#am-w').value.trim();
+    if (!w) return err('Escribe una frase.');
+    if (w.length > 100) return err('Máximo 100 caracteres.');
     bloqueaPalabra(w); vib(40);
-    F.set(R('palabras/' + A.yo), w).catch(() => { err('No se pudo enviar. Reinténtalo.'); $('#am-w').disabled = false; const b = $('#am-ok'); b.disabled = false; b.textContent = 'Enviar palabra'; });
+    F.set(R('palabras/' + A.yo), w).catch(() => { err('No se pudo enviar. Reinténtalo.'); $('#am-w').disabled = false; const b = $('#am-ok'); b.disabled = false; b.textContent = 'Enviar frase'; });
   }
-  function bloqueaPalabra(w) { const i = $('#am-w'), b = $('#am-ok'); if (i) { i.value = w; i.disabled = true; } if (b) { b.disabled = true; b.textContent = 'Enviada ✓'; } }
+  function bloqueaPalabra(w) { const i = $('#am-w'), b = $('#am-ok'); if (i) { i.value = w; i.disabled = true; const n = $('#am-cn'); if (n) n.textContent = w.length + '/100'; } if (b) { b.disabled = true; b.textContent = 'Enviada ✓'; } }
   function compruebaListo() {
     const au = (A.st.orden || []).filter(k => k !== A.yo), m = A.st.mios || {};
     if (au.length && au.every(k => k in m) && !(A.st.listos || {})[A.yo]) F.set(R('listos/' + A.yo), true).catch(() => {});
