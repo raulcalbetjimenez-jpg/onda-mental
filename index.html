@@ -104,7 +104,7 @@ textarea{width:100%;max-width:420px;padding:14px;border-radius:16px;border:1px s
 .vd{width:100%;max-width:260px;margin:8px auto 0}
 .vd .ext b{font-size:.85rem;padding:6px 10px;max-width:48%;line-height:1.1}
 .vrow{display:flex;align-items:center;justify-content:center;gap:14px;margin:8px 0}
-.vrow button{width:52px;height:46px;border-radius:14px;border:1px solid #ffffff33;background:var(--pan);color:var(--tx);font-size:1.6rem;font-weight:800;font-family:inherit}
+.vrow button{width:52px;height:46px;border-radius:14px;border:1px solid #ffffff33;background:var(--pan);color:var(--tx);font-size:1.6rem;font-weight:800;font-family:inherit;touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .vrow button:active{transform:scale(.94)}.vrow button:disabled{opacity:.4}
 .vn{font-weight:800;font-size:1.1rem;min-width:130px;text-align:center}
 .fc.lk .dial{opacity:.7}
@@ -801,7 +801,8 @@ const ModoAmigos = (() => {
               mm = el.querySelector('.mm'), pp = el.querySelector('.pp'), b = el.querySelector('.lock');
         let v = a in mios ? mios[a] : 50, lk = a in mios;              // el voto es siempre un entero de 0 a 100
         const setV = x => { v = Math.max(0, Math.min(100, Math.round(x))); nd.style.transform = `rotate(${ang(v)}deg)`; vn.textContent = 'Tu voto: ' + v; };
-        const off = () => { el.classList.add('lk'); mm.disabled = pp.disabled = b.disabled = true; };
+        const paras = [];                                              // funciones que detienen la repetición de cada botón
+        const off = () => { paras.forEach(f => f()); el.classList.add('lk'); mm.disabled = pp.disabled = b.disabled = true; };
         // Arrastrar la aguja con pointer events (touch-action:none solo afecta al semicírculo)
         const move = e => {
           const r = svg.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height * (100 / 112);
@@ -810,8 +811,32 @@ const ModoAmigos = (() => {
         svg.addEventListener('pointerdown', e => { if (lk) return; svg.setPointerCapture(e.pointerId); nd.style.transition = 'none'; move(e); svg.onpointermove = move; });
         const fin = () => { svg.onpointermove = null; nd.style.transition = ''; };
         svg.addEventListener('pointerup', fin); svg.addEventListener('pointercancel', fin);
-        mm.onclick = () => { if (!lk) setV(v - 1); };
-        pp.onclick = () => { if (!lk) setV(v + 1); };
+        // − / +: un toque cambia 1 punto; mantener pulsado (>400 ms) repite y acelera (120 → 60 → 30 ms)
+        const repite = (btn, d) => {
+          let t = null, t0 = 0;
+          const para = () => { clearTimeout(t); t = null; };
+          paras.push(para);
+          const paso = () => {
+            if (lk) return para();
+            const antes = v; setV(v + d);
+            if (v === antes) return para();                            // tope en 0 o 100: se detiene ahí
+            const dt = Date.now() - t0;
+            t = setTimeout(paso, dt > 3000 ? 30 : dt > 1500 ? 60 : 120);
+          };
+          btn.addEventListener('pointerdown', e => {
+            if (lk) return; e.preventDefault(); para(); t0 = Date.now();
+            setV(v + d);
+            if (cfg.vib && navigator.vibrate) navigator.vibrate(5);    // solo en el primer cambio
+            t = setTimeout(paso, 400);
+          });
+          ['pointerup', 'pointerleave', 'pointercancel', 'lostpointercapture'].forEach(ev => btn.addEventListener(ev, para));
+          // En táctil el puntero queda "capturado" por el botón: si el dedo sale del botón, también se detiene
+          btn.addEventListener('pointermove', e => { const r = btn.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) para(); });
+          btn.addEventListener('contextmenu', e => e.preventDefault());
+          // El click que sigue a un toque no vuelve a cambiar el valor; solo el teclado (detail 0) lo hace
+          btn.addEventListener('click', e => { e.preventDefault(); if (e.detail === 0 && !lk) setV(v + d); });
+        };
+        repite(mm, -1); repite(pp, 1);
         if (lk) off();
         b.onclick = () => {
           if (lk) return; lk = true; off(); b.textContent = 'Bloqueado: ' + v; vib([60, 40, 90]); U.beep(520);
