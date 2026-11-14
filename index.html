@@ -108,6 +108,10 @@ textarea{width:100%;max-width:420px;padding:14px;border-radius:16px;border:1px s
 .vrow button:active{transform:scale(.94)}.vrow button:disabled{opacity:.4}
 .vn{font-weight:800;font-size:1.1rem;min-width:130px;text-align:center}
 .fc.lk .dial{opacity:.7}
+.rd .bd{transition:opacity .4s ease}
+.rd.lit .bd{opacity:.45}
+.rd.lit .bd.on{opacity:1;stroke:#fff;stroke-opacity:.6;stroke-width:1.6;filter:brightness(1.25) saturate(1.3) drop-shadow(0 0 5px var(--g));animation:lp .8s ease-in-out 3}
+@keyframes lp{0%,100%{stroke-opacity:.2}50%{stroke-opacity:1}}
 </style>
 </head>
 <body>
@@ -327,16 +331,28 @@ const ang = p => p * 1.8 - 90;
 const P = (a, r) => { const t = a * Math.PI / 180; return [100 + r * Math.sin(t), 100 - r * Math.cos(t)]; };
 function wedge(a1, a2, col) {
   a1 = Math.max(-90, a1); a2 = Math.min(90, a2);   // la zona nunca sobresale del semicírculo
+  if (a1 >= a2) return '';
   const [x1, y1] = P(a1, 88), [x2, y2] = P(a2, 88);
   return `<path d="M100 100L${x1} ${y1}A88 88 0 0 1 ${x2} ${y2}Z" fill="${col}"/>`;
 }
 // Mitades de franja (en % del dial): 4 pts ±2.5, 3 pts ±7.5, 2 pts ±12.5
-const BANDS = [[12.5, 2, '#3fc1c9'], [7.5, 3, '#ff7a59'], [2.5, 4, '#ffcf4a']];
-// opciones: {target, dial, cover:false, needle:false, zone:false (sin franjas, para votar), needleW (aguja más gruesa y con contorno)}. Sin opciones se comporta como en el Modo clásico.
+const BANDS = [[12.5, 2, '#3fc1c9'], [7.5, 3, '#ff7a59'], [2.5, 4, '#ffcf4a']];   // de la más ancha a la más estrecha
+const bandaGrados = b => b[0] * 1.8;                                               // semianchura de una franja en grados
+// Franja (índice de BANDS) en la que cae `media` para una zona centrada en `target`; -1 si cae fuera.
+// Usa exactamente los mismos límites angulares con los que se dibujan las franjas.
+function bandaDe(target, media) {
+  const da = Math.abs(ang(media) - ang(target));
+  for (let i = BANDS.length - 1; i >= 0; i--) if (da <= bandaGrados(BANDS[i]) + 1e-9) return i;
+  return -1;
+}
+// opciones: {target, dial, cover:false, needle:false, stripes:true (franjas separadas, para iluminar), zone:false (sin franjas, para votar), needleW (aguja más gruesa y con contorno)}. Sin opciones se comporta como en el Modo clásico.
 function dialSVG(o = {}) {
   const tg = o.target != null ? o.target : S.target, di = o.dial != null ? o.dial : S.dial, cv = o.cover !== false, nd = o.needle !== false, zn = o.zone !== false;
   const c = ang(tg);
-  const zone = BANDS.map(b => wedge(c - b[0] * 1.8, c + b[0] * 1.8, b[2])).join('');
+  // stripes:true dibuja cada franja por separado (sin solapar) para poder iluminarlas o atenuarlas
+  const tramo = (i, a1, a2) => wedge(a1, a2, BANDS[i][2]).replace('<path', `<path class="bd" data-b="${i}" stroke="${BANDS[i][2]}" stroke-width=".5" style="--g:${BANDS[i][2]}"`);
+  const zone = o.stripes ? BANDS.map((b, i) => { const w = bandaGrados(b), wi = i < BANDS.length - 1 ? bandaGrados(BANDS[i + 1]) : 0; return wi ? tramo(i, c - w, c - wi) + tramo(i, c + wi, c + w) : tramo(i, c - w, c + w); }).join('')
+    : BANDS.map(b => wedge(c - bandaGrados(b), c + bandaGrados(b), b[2])).join('');
   const [tx, ty] = P(c, 64);
   const lbl = BANDS.map(b => '').join('');
   return `<svg class="dial" viewBox="0 0 200 112" aria-hidden="true">
@@ -857,13 +873,23 @@ const ModoAmigos = (() => {
       set(`${hd}${card}` + o.map(k => {
         const p = Pu[k] || {}, nom = U.esc((J[k] || {}).nombre || k);
         if (p.m == null) return `<div class="fc"><h3 class="fr" data-k="${k}"></h3><small>${nom} · sin datos</small></div>`;
-        return `<div class="fc"><h3 class="fr" data-k="${k}"></h3><small>${nom}</small><div class="dialbox info rd" data-m="${p.m}">${dialSVG({ target: p.r, dial: 50, cover: false, needleW: 5 })}</div>
+        return `<div class="fc"><h3 class="fr" data-k="${k}"></h3><small>${nom}</small><div class="dialbox info rd" data-m="${p.m}" data-r="${p.r}">${dialSVG({ target: p.r, dial: 50, cover: false, needleW: 5, stripes: true })}</div>
           <small>Real <b>${p.r}</b> · Media <b>${Math.round(p.m)}</b> · Diferencia <b>${Math.round(p.d)}</b> → autor +${p.a}</small></div>`;
       }).join('') + `<div class="big2">+${(mi.a || 0) + (mi.v || 0)}</div><p>puntos para ti en esta ronda</p>` +
         (esHost() ? `<button class="btn" id="am-nx">${s.ronda >= total() ? 'Ver resultados finales' : 'Siguiente ronda'}</button>` : '<p>El anfitrión pasará a la siguiente ronda.</p>'));
       pintaFrases();
       // la aguja parte de la vertical y se mueve suavemente hasta la media de los votos
-      setTimeout(() => $$('#am .rd').forEach(d => { const n = d.querySelector('.needle'); n.classList.add('rev'); n.style.transform = `rotate(${ang(+d.dataset.m)}deg)`; }), 300);
+      setTimeout(() => $$('#am .rd').forEach(d => {
+        const n = d.querySelector('.needle'); n.classList.add('rev'); n.style.transform = `rotate(${ang(+d.dataset.m)}deg)`;
+        // Cuando la aguja aterriza, se ilumina la franja donde cae la media (si cae en alguna)
+        const luz = () => {
+          if (d.dataset.lit) return; d.dataset.lit = '1';
+          const i = bandaDe(+d.dataset.r, +d.dataset.m); if (i < 0) return;
+          d.classList.add('lit'); d.querySelectorAll('.bd').forEach(e => e.classList.toggle('on', +e.dataset.b === i));
+        };
+        n.addEventListener('transitionend', ev => { if (ev.propertyName === 'transform') luz(); });
+        setTimeout(luz, 1400);                                           // por si la aguja no se mueve (media = 50)
+      }), 300);
       U.beep(740); vib(80);
       const nx = $('#am-nx'); if (nx) nx.onclick = () => s.ronda >= total() ? F.update(R(), { fase: 'fin', actualizado: ahora() }) : ronda(s.ronda + 1);
     }
